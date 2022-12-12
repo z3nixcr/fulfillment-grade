@@ -1,49 +1,10 @@
-# Purpose: compute course objective fulfillment percentage.
-#
-# Rationale: it is tedious to compute course objective fulfillment
-#            percentage, which is a measurement of students'
-#            performance in a course.
-#
-# Usage: python analyze.py
-#
-# Required files:
-#
-#   - students.txt: a plain text file where each row contains student number and student name, separated by a TAB#
-#   - tasks.json: a plain text file in JSON format specifying the course objectives and tasks in this course.
-#                 Each task is associated to at least one course objective (co). Each co in a task has an associated weight.
-#                 Make sure that all weights across tasks sum to 100.
-#
-#
-# Limitations:
-# 
-# For simplicity, I recommend associating one and only one co to each
-# task, whether the task is an assignment, a quiz, a lab, or a test
-# question.  In the case of having more than one co's in a task, a
-# student's score in this task will be proportionally distributed
-# among these co's according the co's weights.  This treatment is a
-# simplification, since in reality two students with the same task
-# score may have a different score distribution among different co's.
-# For example, a task is associated to two course objectives, co1 and
-# co2, with weights 2 and 2, respectively.  Student A achieved a score
-# of 2 in this task, with 2 in co1 and 0 in co2.  Student B achieved a
-# same score in this task, but with 0 in co1 and 2 in co2.  This
-# software does not consider this difference.  It will assign 1 to co1
-# and 1 to co2, for both student A and student B.  That is why I
-# suggest using a single course objective for each task, to avoid this
-# simplification.  Having more than one course objective in a task
-# might indicate that this task's goal is not specific enough.  You
-# could break down the task into several sub-tasks such that each
-# sub-task corresponds to only one course objective.
-#
-# Copyright (C) 2019, 2020 Hui Lan
-#
-# Contact the author if you encounter any problems: Hui Lan <lanhui@zjnu.edu.cn>
-
-import json, os, sys
-
 # Solve UnicodeDecodeError - https://blog.csdn.net/blmoistawinde/article/details/87717065
 import _locale
 import codecs
+import json
+import os
+import sys
+
 _locale._getdefaultlocale = (lambda *args: ['zh_CN', 'utf8'])
 
 
@@ -61,17 +22,17 @@ def get_student_information(fname):
             line = line.strip()
             lst = line.split('\t')
             if len(lst) != 2:
-                print('File %s does not have two columns.' % (fname))
+                print('File %s does not have two columns.' % fname)
                 sys.exit()
             result.append((lst[0], lst[1]))
     return result
 
 
 def get_max_score(d):
-    '''
+    """
     Return the maximum allowable score in a task.  The maximum score is the sum of all values across all
     course objectives.
-    '''
+    """
     result = 0
     for k in d:
         result += int(d[k])
@@ -81,20 +42,20 @@ def get_max_score(d):
 def get_student_number(fname):
     d = {}
 
-    # If a file has BOM (Byte Order Marker) charater, stop.
+    # If a file has BOM (Byte Order Marker) character, stop.
     with open(fname, 'r+b') as f:
         s = f.read()
         if s.startswith(codecs.BOM_UTF8):
-            print('\nERROR: The file %s contains BOM character.  Remove that first.' % (fname))
+            print('\nERROR: The file %s contains BOM character.  Remove that first.' % fname)
             sys.exit()
-    
+
     f = open(fname)
     for line in f:
         line = line.strip()
         if not line.startswith('#'):
             lst = line.split('\t')
-            sno = lst[0]    # student number
-            d[sno] = lst[2] # score
+            sno = lst[0]  # student number
+            d[sno] = lst[2]  # score
     f.close()
     return d
 
@@ -104,10 +65,9 @@ def make_individual_grade_files(grade_dir, task_dict, student_lst):
         os.mkdir(grade_dir)
     for task in task_dict['tasks']:
         fname = task + '.txt'
-        max_score = get_max_score(task_dict['tasks'][task])
         new_file = os.path.join(grade_dir, fname)
         if not os.path.exists(new_file):
-            print('Create file %s. You need to fill out students\'s scores in this file.' % (new_file))
+            print('Create file %s. You need to fill out students\'s scores in this file.' % new_file)
             f = open(new_file, 'w')
             f.write('#' + task + '\n')
             f.write('\t'.join(['#student.no', 'student.name', 'score']) + '\n')
@@ -117,37 +77,29 @@ def make_individual_grade_files(grade_dir, task_dict, student_lst):
         else:
             inconsistency = 0
             d = get_student_number(new_file)
-            # students.txt could be updated late ... an undesired event.  Check for this event.
             for student in student_lst:
                 sno = student[0]
                 if not sno in d:
                     inconsistency = 1
-                    print('Warning: %s is in the new student file, but is not in the old grade file.' % (sno))
+                    print(f'Warning: %s is in the new student file, but is not in {task}.' % sno)
             student_numbers = [student[0] for student in student_lst]
             for sno in d:
                 if not sno in student_numbers:
                     inconsistency = 1
-                    print('Warning: %s is in the old grade file, but is not in the new student file.' % (sno))                
+
             if inconsistency == 1:
-                print('Warning: I am keeping the available scores.')
-                
-                f = open(new_file)
-                s = f.read()
-                f.close()
-                
-                f = open(new_file  + '.old', 'w')
-                f.write(s)
-                f.close()
-                
                 f = open(new_file, 'w')
                 f.write('#' + task + '\n')
                 f.write('\t'.join(['#student.no', 'student.name', 'score']) + '\n')
                 for student in student_lst:
                     if student[0] in d:
+                        """Set the student score for that grade if available"""
                         f.write('\t'.join([student[0], student[1], '%s' % d[student[0]]]) + '\n')
                     else:
+                        """Set score to 0 for this assigment if score not available for this student"""
+                        print('Giving this student a score of 0 for this assigment.\n')
                         f.write('\t'.join([student[0], student[1], '0']) + '\n')
-                f.close()                
+                f.close()
 
 
 def make_score_dict(fname):
@@ -169,18 +121,17 @@ def get_scores_for_each_student(grade_dir, task_dict):
     d = {}
     for task in task_dict['tasks']:
         fname = task + '.txt'
-        max_score = get_max_score(task_dict['tasks'][task])
         new_file = os.path.join(grade_dir, fname)
         if os.path.exists(new_file):
             d[task] = make_score_dict(new_file)
         else:
-            print('Warning: grade file %s not found.' % (new_file))
+            print('Warning: grade file %s not found.' % new_file)
 
     return d
 
 
 def get_objective_total(d):
-    ''' For each objective, get its total by summing all tasks.'''
+    """ For each objective, get its total by summing all tasks."""
     objective_lst = d['course.objectives']
     result = []
     check_sum = 0
@@ -193,14 +144,14 @@ def get_objective_total(d):
         check_sum += total
         result.append((o, total))
     if check_sum != 100:
-        print('Objective total is not 100 (%d instead). Make sure you have divide the objective scores across task correctly.' % (check_sum))
+        print('Objective total is not 100 (%d instead). Make sure you have divide the objective scores across task correctly.' % check_sum)
         sys.exit()
-    return result # [(objective1, value1), (objective2, value2), ...]
+    return result  # [(objective1, value1), (objective2, value2), ...]
 
 
 def check_availability(fname):
     if not os.path.exists(fname):
-        print('The required file %s does not exist.' % (fname))
+        print('The required file %s does not exist.' % fname)
         sys.exit()
 
 
@@ -210,10 +161,10 @@ TASK_FILE = 'tasks.json'  # required file containing course objectives and tasks
 check_availability(TASK_FILE)
 STUDENT_FILE = 'students.txt'  # required file containing student numbers and student names.
 check_availability(STUDENT_FILE)
-GRADE_FILE = 'grade_file.xls' # output
+GRADE_FILE = 'grade_file.xls'  # output
 software_information = 'Course Objective Fulfillment Calculator\nCopyright (C) 2019 Hui Lan (lanhui@zjnu.edu.cn)'
 n = max([len(s) for s in software_information.split('\n')])
-banner = '%s\n%s\n%s' % ('-'*n, software_information, '-'*n)
+banner = '%s\n%s\n%s' % ('-' * n, software_information, '-' * n)
 print(banner)
 
 task_dict = get_task_information(TASK_FILE)
@@ -247,30 +198,29 @@ for s in student_lst:
             sys.exit()
         else:
             result += '    %s:%s\t' % (task, score)
-            file_content += '\t%s' % (score)
+            file_content += '\t%s' % score
             total += float(score)
             for co in task_dict['course.objectives']:
                 if co in task_dict['tasks'][task]:
-                    my_share = 1.0*float(score) * task_dict['tasks'][task][co] / total_score
+                    my_share = 1.0 * float(score) * task_dict['tasks'][task][co] / total_score
                     course_object_cumulative_score[co] += my_share
-                    result += ' [%4.1f] ' % ( my_share )
+                    result += ' [%4.1f] ' % my_share
                 else:
                     result += ' [%4.1f] ' % (0)
         result += '\n'
-    result += '    ---\n    Total:%4.1f\n' % (total)
-    file_content += '\t%4.1f\n' % (total)
-    #print(result)
-    
+    result += '    ---\n    Total:%4.1f\n' % total
+    file_content += '\t%4.1f\n' % total
+    # print(result)
+
 f = open(GRADE_FILE, 'w')
 f.write(file_content)
 f.close()
-print('Check spreadsheet %s.' % (GRADE_FILE))
-
+print('Check spreadsheet %s.' % GRADE_FILE)
 
 objective_total = get_objective_total(task_dict)
 num_student = len(student_lst)
 for x in objective_total:
     co = x[0]
     value = x[1]
-    percentage = 100 * course_object_cumulative_score[co]/(value * num_student)
+    percentage = 100 * course_object_cumulative_score[co] / (value * num_student)
     print('Course objective %s is %.0f%% satisfied.' % (co, percentage))
