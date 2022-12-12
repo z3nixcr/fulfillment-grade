@@ -1,0 +1,12 @@
+#quiz
+#student.no	student.name	score
+202025800038	mvondo jean claude wilfried	18
+202025800041	omar mohamud mohamed	20
+202025800042	khayat youssef	18
+202025800044	khondowe enock	20
+202025800045	mutyambizi mabasa nyasha	20
+202025800046	rusike samantha	20
+202025800049	umba ilunga jeannick	20
+202025800050	achaab godwin ferguson	18
+202025800051	rahman md ashikur	0
+202025800052	anjum nafis	0
